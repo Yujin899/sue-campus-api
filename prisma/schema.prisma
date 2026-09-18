@@ -1,0 +1,189 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum QuizStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  MULTI_SELECT
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  authoredQuizzes Quiz[] @relation("QuizAuthor")
+  reviewedQuizzes Quiz[] @relation("QuizReviewer")
+  quizAttempts   QuizAttempt[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model Subject {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  name        String
+  description String?
+  thumbnail   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lectures    Lecture[]
+  quizzes     Quiz[]
+}
+
+model Lecture {
+  id          String   @id @default(cuid())
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  title       String
+  fileName    String
+  objectKey   String   @unique
+  size        Int
+  contentType String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([subjectId])
+}
+
+model Quiz {
+  id              String     @id @default(cuid())
+  subjectId       String
+  subject         Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  title           String
+  description     String?
+  durationMinutes Int
+  status          QuizStatus @default(DRAFT)
+  reviewNote      String?
+  createdById     String
+  createdBy       User       @relation("QuizAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedById    String?
+  reviewedBy      User?      @relation("QuizReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  questions       Question[]
+  attempts        QuizAttempt[]
+
+  @@index([subjectId])
+  @@index([createdById])
+  @@index([status])
+}
+
+model Question {
+  id                    String          @id @default(cuid())
+  quizId                String
+  quiz                  Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type                  QuestionType    @default(MULTIPLE_CHOICE)
+  prompt                String
+  options               String[]
+  correctAnswerIndices  Int[]
+  order                 Int
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  attemptAnswers        AttemptAnswer[]
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id          String        @id @default(cuid())
+  quizId      String
+  quiz        Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      AttemptStatus @default(IN_PROGRESS)
+  score       Int?
+  total       Int?
+  startedAt   DateTime      @default(now())
+  submittedAt DateTime?
+  answers     AttemptAnswer[]
+
+  @@index([quizId])
+  @@index([userId])
+}
+
+model AttemptAnswer {
+  id               String      @id @default(cuid())
+  attemptId        String
+  attempt          QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedIndices  Int[]
+  isCorrect        Boolean?
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+}
+

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Subject" DROP CONSTRAINT "Subject_pkey",
+ALTER COLUMN "id" DROP DEFAULT,
+ALTER COLUMN "id" SET DATA TYPE TEXT,
+ADD CONSTRAINT "Subject_pkey" PRIMARY KEY ("id");
+DROP SEQUENCE "Subject_id_seq";
