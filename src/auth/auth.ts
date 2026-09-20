@@ -8,6 +8,7 @@ import { createPrismaClient } from '../prisma/prisma-client';
 const prisma = createPrismaClient();
 
 const trustedOrigins = [
+  ...(process.env.VERCEL ? ['https://*.vercel.app'] : []),
   process.env.FRONTEND_ORIGIN,
   process.env.BETTER_AUTH_URL,
 ].filter((origin): origin is string => Boolean(origin));
