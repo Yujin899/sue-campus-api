@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { emailOTP } from 'better-auth/plugins';
 import { assertEmailConfigured, sendOtpEmail } from '../email/brevo';
 import { createPrismaClient } from '../prisma/prisma-client';
+import { isBanActive } from '../users/users.service';
 
 const logger = new Logger('Auth');
 
@@ -36,6 +38,39 @@ export const auth = betterAuth({
   basePath: '/api/auth',
   trustedOrigins,
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
+  databaseHooks: {
+    session: {
+      create: {
+        // A block has to stop sign-in, not just hide a row. Hooking session
+        // creation covers every sign-in path (email OTP and Google).
+        before: async (session) => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { banned: true, bannedUntil: true },
+          });
+
+          if (!user) {
+            return;
+          }
+
+          if (!isBanActive(user)) {
+            // Lift a ban whose expiry has passed instead of blocking forever.
+            if (user.banned) {
+              await prisma.user.update({
+                where: { id: session.userId },
+                data: { banned: false, banReason: null, bannedUntil: null },
+              });
+            }
+            return;
+          }
+
+          throw new APIError('FORBIDDEN', {
+            message: 'This account has been blocked. Contact an admin.',
+          });
+        },
+      },
+    },
+  },
   rateLimit: {
     enabled: true,
     window: 60,

@@ -48,14 +48,14 @@ export class QuizzesService {
   }
 
   private isAuthorOrAdmin(
-    quiz: { createdById: string },
+    quiz: { createdById: string | null },
     requester: Requester,
   ): boolean {
     return quiz.createdById === requester.id || requester.role === Role.ADMIN;
   }
 
   private assertCanView(
-    quiz: { status: QuizStatus; createdById: string },
+    quiz: { status: QuizStatus; createdById: string | null },
     requester: Requester,
   ): void {
     if (quiz.status === QuizStatus.PUBLISHED) {
@@ -68,7 +68,7 @@ export class QuizzesService {
   }
 
   private assertAuthorOrAdmin(
-    quiz: { createdById: string },
+    quiz: { createdById: string | null },
     requester: Requester,
   ): void {
     if (!this.isAuthorOrAdmin(quiz, requester)) {
