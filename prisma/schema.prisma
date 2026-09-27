@@ -97,7 +97,7 @@ model Verification {
 
 model Subject {
   id          String    @id @default(cuid())
-  code        String    @unique
+  code        String
   name        String
   description String?
   thumbnail   String?
